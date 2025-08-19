@@ -1,0 +1,160 @@
+const playBtn = document.getElementById('playBtn');
+const creditsBtn = document.getElementById('creditsBtn');
+const creditsDlg = document.getElementById('credits');
+const closeCredits = document.getElementById('closeCredits');
+const fallingContainer = document.querySelector('.falling-container');
+const images = ['manipulavel1.png', 'manipulavel2.png', 'manipulavel3.png'];
+
+const imageProperties = {
+  'manipulavel1.png': { size: 'clamp(40px, 9vw, 120px)', rotation: -3, speed: 1.0 },
+  'manipulavel2.png': { size: 'clamp(30px, 10vw, 50px)', rotation: 5, speed: 1.0 },
+  'manipulavel3.png': { size: 'clamp(45px, 10vw, 80px)', rotation: -7, speed: 1.0 },
+};
+
+let fallingImages = [];
+const maxImages = 15;
+let draggedImage = null;
+let offset = { x: 0, y: 0 };
+
+const startFall = (element) => {
+  const fallLoop = () => {
+    const currentTop = parseFloat(element.style.top);
+    const fallSpeed = parseFloat(element.dataset.fallSpeed);
+    const newTop = currentTop + fallSpeed;
+
+    element.style.top = `${newTop}px`;
+
+    // O elemento não recicla mais sozinho aqui. Isso é feito pelo setInterval.
+    if (element !== draggedImage) {
+      element.dataset.animationFrameId = requestAnimationFrame(fallLoop);
+    }
+  };
+  element.dataset.animationFrameId = requestAnimationFrame(fallLoop);
+};
+
+const stopFall = (element) => {
+  if (element.dataset.animationFrameId) {
+    cancelAnimationFrame(element.dataset.animationFrameId);
+    element.dataset.animationFrameId = '';
+  }
+};
+
+const recycleImage = (imgToRecycle) => {
+  const randomImageSrc = images[Math.floor(Math.random() * images.length)];
+  const props = imageProperties[randomImageSrc];
+  imgToRecycle.src = randomImageSrc;
+  imgToRecycle.style.width = props.size;
+  imgToRecycle.style.opacity = Math.random() * 0.4 + 0.6;
+  imgToRecycle.style.left = `${Math.random() * 100}vw`;
+  imgToRecycle.style.top = '-150px';
+  imgToRecycle.style.transform = `rotate(${props.rotation}deg)`;
+  imgToRecycle.dataset.fallSpeed = props.speed * (Math.random() * 0.5 + 0.75);
+  startFall(imgToRecycle);
+};
+
+const createNewImage = () => {
+  if (fallingImages.length >= maxImages) {
+    return; // Não cria se o limite foi atingido
+  }
+  const randomImageSrc = images[Math.floor(Math.random() * images.length)];
+  const props = imageProperties[randomImageSrc];
+
+  const img = document.createElement('img');
+  img.src = randomImageSrc;
+  img.className = 'falling-image draggable';
+  img.style.width = props.size;
+  img.style.height = 'auto';
+  img.style.left = `${Math.random() * 100}vw`;
+  img.style.top = '-150px';
+  img.style.transform = `rotate(${props.rotation}deg)`;
+  img.style.opacity = Math.random() * 0.4 + 0.6;
+
+  img.dataset.fallSpeed = props.speed * (Math.random() * 0.5 + 0.75);
+  img.addEventListener('mousedown', onMouseDownOnImage);
+
+  fallingContainer.appendChild(img);
+  fallingImages.push(img);
+
+  startFall(img);
+};
+
+const onMouseDownOnImage = (e) => {
+  draggedImage = e.currentTarget;
+  draggedImage.style.cursor = 'grabbing';
+
+  stopFall(draggedImage);
+  
+  draggedImage.style.zIndex = '100';
+
+  const rect = draggedImage.getBoundingClientRect();
+  offset.x = e.clientX - rect.left;
+  offset.y = e.clientY - rect.top;
+
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp);
+};
+
+const onMouseMove = (e) => {
+  if (draggedImage) {
+    const parentRect = fallingContainer.getBoundingClientRect();
+    const newX = e.clientX - parentRect.left - offset.x;
+    const newY = e.clientY - parentRect.top - offset.y;
+
+    draggedImage.style.left = `${newX}px`;
+    draggedImage.style.top = `${newY}px`;
+  }
+};
+
+const onMouseUp = () => {
+  if (draggedImage) {
+    draggedImage.style.cursor = 'grab';
+    draggedImage.style.zIndex = '';
+
+    startFall(draggedImage);
+
+    draggedImage = null;
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+  }
+};
+
+// Popula a tela inicialmente com algumas imagens
+for (let i = 0; i < 5; i++) {
+  createNewImage();
+}
+
+// Controla o fluxo de imagens em um intervalo regular
+setInterval(() => {
+  let recycled = false;
+  for (const img of fallingImages) {
+    const rect = img.getBoundingClientRect();
+    if (rect.top > window.innerHeight) {
+      recycleImage(img);
+      recycled = true;
+      break;
+    }
+  }
+  if (!recycled) {
+    createNewImage();
+  }
+}, 2000); // Cria ou recicla uma imagem a cada 2 segundos. Ajuste esse valor se quiser mais ou menos itens.
+
+playBtn.addEventListener('click', () => {
+  alert('Iniciar jogo… (COLOCAR O CODIGO DO JOGO AQUI)');
+});
+
+creditsBtn.addEventListener('click', () => creditsDlg.showModal());
+closeCredits.addEventListener('click', () => creditsDlg.close());
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !creditsDlg.open) playBtn.click();
+  if (e.key === 'Escape' && creditsDlg.open) creditsDlg.close();
+});
+
+creditsDlg.addEventListener('click', (e) => {
+  const rect = creditsDlg.getBoundingClientRect();
+  const inDialog =
+    e.clientX >= rect.left && e.clientX <= rect.right &&
+    e.clientY >= rect.top && e.clientY <= rect.bottom;
+  if (!inDialog) creditsDlg.close();
+});
